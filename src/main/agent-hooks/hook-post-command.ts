@@ -5,8 +5,9 @@ import { ORCA_HOOK_RAW_JSON_TRANSPORT } from '../../shared/agent-hook-types'
 // Comma-decimal locales reject `0.5` before opening a socket, so every hook
 // silently falls into the restart spool (#19578). Scoped to LC_NUMERIC so
 // spool_json_escape keeps UTF-8 LC_CTYPE for non-ASCII worktree paths.
+// LC_ALL is cleared so an inherited LC_ALL cannot override LC_NUMERIC=C.
 export function posixCurlCommand(curlCommand = 'curl'): string {
-  return `LC_NUMERIC=C ${curlCommand}`
+  return `LC_ALL= LC_NUMERIC=C ${curlCommand}`
 }
 
 export function buildPosixAgentHookPostCommand(

@@ -60,7 +60,7 @@ describe('KimiHookService', () => {
     expect(script).toContain('--data-urlencode "payload@-"')
     expect(script).not.toContain('--data-urlencode "payload=${payload}"')
     if (process.platform !== 'win32') {
-      expect(script).toContain('printf \'%s\' "$payload" | LC_NUMERIC=C curl')
+      expect(script).toContain('printf \'%s\' "$payload" | LC_ALL= LC_NUMERIC=C curl')
     }
     // The command Kimi runs points at the managed script via sh.
     expect(config).toContain('agent-hooks/kimi-hook.sh')

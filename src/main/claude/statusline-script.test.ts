@@ -29,7 +29,7 @@ describe('getManagedStatusLineScript (posix)', () => {
     expect(endpointIndex).toBeLessThan(curlIndex)
     expect(script).toContain('/statusline/claude')
     expect(script).toContain('--data-urlencode "payload@-"')
-    expect(script).toContain('| LC_NUMERIC=C curl -sS')
+    expect(script).toContain('| LC_ALL= LC_NUMERIC=C curl -sS')
     expect(script).not.toMatch(/\|\s+curl\b/)
   })
 

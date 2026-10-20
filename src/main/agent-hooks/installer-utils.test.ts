@@ -918,13 +918,13 @@ describe('buildPosixAgentHookPostCommand', () => {
 
   it('forces C numeric locale on every curl invocation so fractional timeouts parse', () => {
     const command = buildPosixAgentHookPostCommand('claude').join('\n')
-    expect(command).toContain('| LC_NUMERIC=C curl -sS')
+    expect(command).toContain('| LC_ALL= LC_NUMERIC=C curl -sS')
     expect(command).not.toMatch(/\|\s+curl\b/)
 
     const custom = buildPosixAgentHookPostCommand('codex', { curlCommand: '"$curl_bin"' }).join(
       '\n'
     )
-    expect(custom).toContain('| LC_NUMERIC=C "$curl_bin" -sS')
+    expect(custom).toContain('| LC_ALL= LC_NUMERIC=C "$curl_bin" -sS')
     expect(custom).not.toMatch(/\|\s+"\$curl_bin"/)
   })
 })

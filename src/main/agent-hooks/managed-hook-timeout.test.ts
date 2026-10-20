@@ -219,7 +219,7 @@ describe('managed agent hook timeouts', () => {
     expect(content, `${label} wrapper missing --connect-timeout`).toContain('--connect-timeout')
     expect(content, `${label} wrapper missing --max-time`).toContain('--max-time')
     expect(content, `${label} wrapper missing C numeric locale for curl`).toMatch(
-      /LC_NUMERIC=C (?:curl|"\$curl_bin")/
+      /LC_ALL= LC_NUMERIC=C (?:curl|"\$curl_bin")/
     )
     expect(content, `${label} wrapper posts curl without C numeric locale`).not.toMatch(
       /\|\s+curl\b/
@@ -273,7 +273,7 @@ describe('managed agent hook timeouts', () => {
         const observed = join(tempDir, 'lc-numeric')
         writeFileSync(
           join(binDir, 'curl'),
-          `#!/bin/sh\nprintf '%s' "$LC_NUMERIC" > "${observed}"\nexit 0\n`
+          `#!/bin/sh\nprintf '%s|%s' "$LC_ALL" "$LC_NUMERIC" > "${observed}"\nexit 0\n`
         )
         chmodSync(join(binDir, 'curl'), 0o755)
         const scriptPath = join(tempDir, 'gemini-hook.sh')
@@ -285,6 +285,7 @@ describe('managed agent hook timeouts', () => {
             env: {
               ...process.env,
               PATH: `${binDir}:${process.env.PATH ?? ''}`,
+              LC_ALL: 'de_DE.UTF-8',
               LC_NUMERIC: 'de_DE.UTF-8',
               ORCA_AGENT_HOOK_ENDPOINT: '',
               ORCA_AGENT_HOOK_PORT: '9',
@@ -314,7 +315,7 @@ describe('managed agent hook timeouts', () => {
           child.stdin.end('{"hook_event_name":"Stop"}')
         })
 
-        expect(readFileSync(observed, 'utf8')).toBe('C')
+        expect(readFileSync(observed, 'utf8')).toBe('|C')
       }
     )
   })
