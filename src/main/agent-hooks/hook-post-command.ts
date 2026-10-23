@@ -1,11 +1,7 @@
 import type { AgentHookSource } from '../../shared/agent-hook-relay'
 import { ORCA_HOOK_RAW_JSON_TRANSPORT } from '../../shared/agent-hook-types'
 
-// Why: curl parses --connect-timeout/--max-time with locale-sensitive strtod.
-// Comma-decimal locales reject `0.5` before opening a socket, so every hook
-// silently falls into the restart spool (#19578). Scoped to LC_NUMERIC so
-// spool_json_escape keeps UTF-8 LC_CTYPE for non-ASCII worktree paths.
-// LC_ALL is cleared so an inherited LC_ALL cannot override LC_NUMERIC=C.
+// Older curl needs C numeric parsing; keep the parent script's UTF-8 locale unchanged.
 export function posixCurlCommand(curlCommand = 'curl'): string {
   return `LC_ALL= LC_NUMERIC=C ${curlCommand}`
 }
@@ -27,6 +23,7 @@ export function buildPosixAgentHookPostCommand(
     `  ${indent}-H "X-Orca-Agent-Hook-Token: \${ORCA_AGENT_HOOK_TOKEN}" \\`,
     `  ${indent}-H "X-Orca-Agent-Hook-Meta-Encoding: base64" \\`,
     `  ${indent}-H "X-Orca-Agent-Hook-Meta: \${orca_hook_metadata}" \\`,
+    `  ${indent}-H "X-Orca-Agent-Process: \${orca_agent_process:-}" \\`,
     `  ${indent}--data-binary @-`,
     'else',
     `  printf '%s' "$payload" | ${curlCommand} -sS -X POST "http://127.0.0.1:\${ORCA_AGENT_HOOK_PORT}/hook/${source}" \\`,
@@ -40,6 +37,7 @@ export function buildPosixAgentHookPostCommand(
     `  ${indent}--data-urlencode "worktreeId=\${ORCA_WORKTREE_ID}" \\`,
     `  ${indent}--data-urlencode "env=\${ORCA_AGENT_HOOK_ENV}" \\`,
     `  ${indent}--data-urlencode "version=\${ORCA_AGENT_HOOK_VERSION}" \\`,
+    `  ${indent}--data-urlencode "agentProcess=\${orca_agent_process:-}" \\`,
     `  ${indent}--data-urlencode "payload@-"`,
     'fi'
   ]

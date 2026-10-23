@@ -2,6 +2,7 @@
 // Orca's script while the presence gate skips install() forever. These tests pin the
 // repair — existing scripts come current, missing ones are never created.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as CodexHookHashLookup from '../codex/codex-hook-hash-lookup'
 import {
   existsSync,
   chmodSync,
@@ -38,6 +39,13 @@ afterEach(() => {
 
 const { homedirMock } = vi.hoisted(() => ({
   homedirMock: vi.fn<() => string>()
+}))
+
+// Why: stands in for asking a real Codex for its hook hashes, as the grant stub once did.
+vi.mock('../codex/codex-hook-hash-lookup', async (importOriginal) => ({
+  ...(await importOriginal<typeof CodexHookHashLookup>()),
+  resolveCodexHookAnswerForLaunch: async () =>
+    (await import('../codex/hook-service-test-harness')).codexHookAnswerForTests()
 }))
 
 vi.mock('electron', () => ({
@@ -138,17 +146,47 @@ describe('managed hook script refresh', () => {
     }
   })
 
+  it.skipIf(process.platform === 'win32')(
+    'refreshes existing POSIX hook and statusline locale handling without a CLI config',
+    async () => {
+      const home = mkdtempSync(join(tmpdir(), 'orca-hook-locale-refresh-'))
+      homedirMock.mockReturnValue(home)
+      try {
+        const hooksDir = join(home, '.orca', 'agent-hooks')
+        mkdirSync(hooksDir, { recursive: true })
+        for (const name of ['claude-hook.sh', 'claude-statusline.sh']) {
+          writeFileSync(join(hooksDir, name), '#!/bin/sh\ncurl --connect-timeout 0.5\n')
+        }
+        await new ClaudeHookService().refreshManagedScripts()
+        for (const name of ['claude-hook.sh', 'claude-statusline.sh']) {
+          const script = readFileSync(join(hooksDir, name), 'utf8')
+          expect(script).toContain('| LC_ALL= LC_NUMERIC=C curl -sS')
+          expect(script).not.toMatch(/\|\s+curl\b/)
+          expect(statSync(join(hooksDir, name)).mode & 0o777).toBe(0o755)
+        }
+        expect(existsSync(join(home, '.claude'))).toBe(false)
+        expect(readdirSync(hooksDir).sort()).toEqual(['claude-hook.sh', 'claude-statusline.sh'])
+      } finally {
+        homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir())
+        rmSync(home, { recursive: true, force: true })
+      }
+    }
+  )
+
   it('covers every shared launcher script with a refresher', async () => {
     const home = mkdtempSync(join(tmpdir(), 'orca-hook-refresh-coverage-'))
     homedirMock.mockReturnValue(home)
     const previousGrokHome = process.env.GROK_HOME
     const previousKimiHome = process.env.KIMI_CODE_HOME
+    const previousXdgConfigHome = process.env.XDG_CONFIG_HOME
     delete process.env.GROK_HOME
     delete process.env.KIMI_CODE_HOME
+    delete process.env.XDG_CONFIG_HOME
     try {
-      await withPlatform('win32', () => {
+      // Why awaited: the Codex installer waits for Codex's hook hashes before it writes.
+      await withPlatform('win32', async () => {
         for (const [, install] of MANAGED_AGENT_HOOK_INSTALLERS) {
-          install()
+          await install()
         }
       })
       const hooksDir = join(home, '.orca', 'agent-hooks')
@@ -182,6 +220,11 @@ describe('managed hook script refresh', () => {
         delete process.env.KIMI_CODE_HOME
       } else {
         process.env.KIMI_CODE_HOME = previousKimiHome
+      }
+      if (previousXdgConfigHome === undefined) {
+        delete process.env.XDG_CONFIG_HOME
+      } else {
+        process.env.XDG_CONFIG_HOME = previousXdgConfigHome
       }
       rmSync(home, { recursive: true, force: true })
     }
